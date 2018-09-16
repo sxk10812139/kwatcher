@@ -10,6 +10,7 @@ import (
 type Path string
 
 type Watcher struct {
+	Interval   time.Duration
 	WatchFiles []File
 	FileStatus map[Path]time.Time
 	Callback   func([]Path)
@@ -19,6 +20,10 @@ type Watcher struct {
 func (w *Watcher) AddFiles(f string) {
 	file := File{Path: Path(f)}
 	w.WatchFiles = append(w.WatchFiles, file)
+}
+
+func (w *Watcher) SetInterval(t time.Duration) {
+	w.Interval = t
 }
 
 func (w *Watcher) SetCallback(f func([]Path)) {
@@ -54,7 +59,7 @@ func (w *Watcher) checkFiles() []Path {
 
 func (w *Watcher) Run() {
 	w.init()
-	ticker := time.Tick(1 * time.Second)
+	ticker := time.Tick(w.Interval)
 	for {
 		select {
 		case <-ticker:
@@ -76,5 +81,5 @@ type File struct {
 }
 
 func NewWatcher() *Watcher {
-	return &Watcher{FileStatus: make(map[Path]time.Time)}
+	return &Watcher{Interval: time.Second, FileStatus: make(map[Path]time.Time)}
 }
