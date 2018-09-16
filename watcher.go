@@ -50,8 +50,10 @@ func (w *Watcher) checkFiles() []Path {
 			continue
 		}
 		if fileInfo.ModTime() != time {
+			w.mux.Lock()
 			files = append(files, path)
 			w.FileStatus[path] = fileInfo.ModTime()
+			w.mux.Unlock()
 		}
 	}
 	return files
