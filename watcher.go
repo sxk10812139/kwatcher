@@ -63,7 +63,7 @@ func (w *Watcher) Run() {
 				if len(modifyFiles) > 0 {
 					w.Callback(modifyFiles)
 				} else {
-					fmt.Println("周期执行")
+					fmt.Println("watcher running")
 				}
 			}()
 		}

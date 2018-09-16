@@ -1,10 +1,7 @@
-# kwatcher
-File watcher
-
 ## Example
 ```
 watcher := kwatcher.NewWatcher()
-watcher.AddFiles("/Users/sunxiangke/project/go/src/local/kwatcher/test")
+watcher.AddFiles("path/to/file")
 watcher.SetCallback(func(modifyFiles []kwatcher.Path) {
   for _, path := range modifyFiles {
     fmt.Println(path + "changed")
@@ -12,3 +9,5 @@ watcher.SetCallback(func(modifyFiles []kwatcher.Path) {
 })
 watcher.Run()
 ```
+## screenshot
+![2018091715371192238739.png](http://pic.aipp.vip/2018091715371192238739.png)
