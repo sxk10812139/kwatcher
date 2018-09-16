@@ -7,44 +7,60 @@ import (
 	"time"
 )
 
-type Path string
-
 type Watcher struct {
-	Interval   time.Duration
-	WatchFiles []File
-	FileStatus map[Path]time.Time
-	Callback   func([]Path)
-	mux        *sync.Mutex
+	Interval     time.Duration
+	WatchFiles   []File
+	WatchDirs    []Dir
+	FileStatus   map[string]time.Time
+	DirStatus    map[string](map[string]time.Time)
+	FileCallback func([]string)
+	DirCallback  func(map[string]([]string))
+	mux          *sync.Mutex
 }
 
-func (w *Watcher) AddFiles(f string) {
-	file := File{Path: Path(f)}
+func (w *Watcher) AddDir(d string) {
+	dir := Dir{Path: d}
+	w.WatchDirs = append(w.WatchDirs, dir)
+}
+
+func (w *Watcher) AddDirs(dirs []string) {
+	for _, dir := range dirs {
+		w.AddDir(dir)
+	}
+}
+
+func (w *Watcher) AddFile(f string) {
+	file := File{Path: f}
 	w.WatchFiles = append(w.WatchFiles, file)
+}
+
+func (w *Watcher) AddFiles(files []string) {
+	for _, file := range files {
+		w.AddFile(file)
+	}
 }
 
 func (w *Watcher) SetInterval(t time.Duration) {
 	w.Interval = t
 }
 
-func (w *Watcher) SetCallback(f func([]Path)) {
-	w.Callback = f
+func (w *Watcher) SetFileCallback(f func([]string)) {
+	w.FileCallback = f
+}
+
+func (w *Watcher) SetDirCallback(f func(map[string]([]string))) {
+	w.DirCallback = f
 }
 
 func (w *Watcher) init() {
-	for _, f := range w.WatchFiles {
-		fileInfo, err := os.Stat(string(f.Path))
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		w.FileStatus[f.Path] = fileInfo.ModTime()
-	}
+	w.FileStatus = ParseFiles(w.WatchFiles)
+	w.DirStatus = ParseDirs(w.WatchDirs)
 }
 
-func (w *Watcher) checkFiles() []Path {
-	var files []Path
+func (w *Watcher) checkFiles() []string {
+	var files []string
 	for path, time := range w.FileStatus {
-		fileInfo, err := os.Stat(string(path))
+		fileInfo, err := os.Stat(path)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -59,6 +75,33 @@ func (w *Watcher) checkFiles() []Path {
 	return files
 }
 
+func (w *Watcher) checkDirs() map[string]([]string) {
+	res := make(map[string]([]string))
+
+	for dirPath, dirFileList := range w.DirStatus {
+		dirChangedFiles := []string{}
+		for filePath, fileModTime := range dirFileList {
+			fileInfo, err := os.Stat(filePath)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			if fileInfo.ModTime() != fileModTime {
+				dirChangedFiles = append(dirChangedFiles, filePath)
+				w.mux.Lock()
+				w.DirStatus[dirPath][filePath] = fileInfo.ModTime()
+				w.mux.Unlock()
+			}
+		}
+
+		if len(dirChangedFiles) > 0 {
+			res[dirPath] = dirChangedFiles
+		}
+
+	}
+	return res
+}
+
 func (w *Watcher) Run() {
 	w.init()
 	ticker := time.Tick(w.Interval)
@@ -68,9 +111,17 @@ func (w *Watcher) Run() {
 			go func() {
 				modifyFiles := w.checkFiles()
 				if len(modifyFiles) > 0 {
-					w.Callback(modifyFiles)
+					w.FileCallback(modifyFiles)
 				} else {
-					fmt.Println("watcher running")
+					fmt.Println("file watcher running")
+				}
+			}()
+			go func() {
+				modifyDirFiles := w.checkDirs()
+				if len(modifyDirFiles) > 0 {
+					w.DirCallback(modifyDirFiles)
+				} else {
+					fmt.Println("dir watcher running")
 				}
 			}()
 		}
@@ -78,10 +129,6 @@ func (w *Watcher) Run() {
 
 }
 
-type File struct {
-	Path Path
-}
-
 func NewWatcher() *Watcher {
-	return &Watcher{Interval: time.Second, FileStatus: make(map[Path]time.Time)}
+	return &Watcher{Interval: time.Second, FileStatus: make(map[string]time.Time), mux: new(sync.Mutex)} //mutex需要初始化
 }
