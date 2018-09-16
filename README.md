@@ -1,6 +1,7 @@
 ## Example
 ```
 watcher := kwatcher.NewWatcher()
+watcher.SetInterval(time.Second)
 watcher.AddFiles("path/to/file")
 watcher.SetCallback(func(modifyFiles []kwatcher.Path) {
   for _, path := range modifyFiles {
