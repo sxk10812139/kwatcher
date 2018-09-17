@@ -102,31 +102,38 @@ func (w *Watcher) checkDirs() map[string]([]string) {
 	return res
 }
 
+func (w *Watcher) handleFiles() {
+	modifyFiles := w.checkFiles()
+	if len(modifyFiles) > 0 {
+		w.FileCallback(modifyFiles)
+	} else {
+		fmt.Println("file watcher running")
+	}
+}
+
+func (w *Watcher) handleDirs() {
+	modifyDirFiles := w.checkDirs()
+	if len(modifyDirFiles) > 0 {
+		w.DirCallback(modifyDirFiles)
+	} else {
+		fmt.Println("dir watcher running")
+	}
+}
+
+func (w *Watcher) checkAndProcess() {
+	go w.handleFiles()
+	go w.handleDirs()
+}
+
 func (w *Watcher) Run() {
 	w.init()
 	ticker := time.Tick(w.Interval)
 	for {
 		select {
 		case <-ticker:
-			go func() {
-				modifyFiles := w.checkFiles()
-				if len(modifyFiles) > 0 {
-					w.FileCallback(modifyFiles)
-				} else {
-					fmt.Println("file watcher running")
-				}
-			}()
-			go func() {
-				modifyDirFiles := w.checkDirs()
-				if len(modifyDirFiles) > 0 {
-					w.DirCallback(modifyDirFiles)
-				} else {
-					fmt.Println("dir watcher running")
-				}
-			}()
+			w.checkAndProcess()
 		}
 	}
-
 }
 
 func NewWatcher() *Watcher {
